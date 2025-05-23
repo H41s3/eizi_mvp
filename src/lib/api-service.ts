@@ -69,8 +69,8 @@ export const sendChatMessage = async (
     switch (config.chatAI.provider) {
       case 'openai':
         apiEndpoint = 'https://api.openai.com/v1/chat/completions';
-        // Handle both project and secret API keys
-        headers['Authorization'] = `Bearer ${config.chatAI.apiKey.startsWith('sk-proj-') ? config.chatAI.apiKey.replace('sk-proj-', 'sk-') : config.chatAI.apiKey}`;
+        // Keep the original API key format
+        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -114,9 +114,13 @@ export const sendChatMessage = async (
         };
     }
 
-    console.log('Making API call with headers:', {
-      ...headers,
-      'Authorization': headers['Authorization']?.substring(0, 20) + '...'
+    console.log('Making API call with:', {
+      endpoint: apiEndpoint,
+      headers: {
+        ...headers,
+        'Authorization': 'Bearer sk-****' // Hide the actual key
+      },
+      body: requestBody
     });
 
     // Make the API call
@@ -149,7 +153,10 @@ export const sendChatMessage = async (
       throw new Error('Invalid response from API');
     });
 
-    console.log('API response:', data);
+    console.log('API response:', {
+      ...data,
+      choices: data.choices?.map(c => ({ ...c, message: { ...c.message, content: c.message.content.substring(0, 50) + '...' } }))
+    });
 
     // Process different response formats based on provider
     let content = '';
