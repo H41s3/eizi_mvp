@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { loadApiConfig, saveApiConfig } from '@/lib/api-config';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 const Settings = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [apiKey, setApiKey] = useState('');
   const [provider, setProvider] = useState('openai');
   const [model, setModel] = useState('gpt-3.5-turbo');
@@ -35,6 +38,7 @@ const Settings = () => {
         title: "Settings saved",
         description: "Your API configuration has been saved successfully.",
       });
+      navigate('/'); // Navigate back to chat after saving
     } catch (error) {
       toast({
         title: "Error",
@@ -46,6 +50,17 @@ const Settings = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <div className="mb-4">
+        <Button
+          variant="ghost"
+          className="gap-2"
+          onClick={() => navigate('/')}
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Chat
+        </Button>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>API Settings</CardTitle>

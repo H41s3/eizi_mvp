@@ -15,10 +15,18 @@ interface ChatCompletionRequest {
   max_tokens?: number;
 }
 
+interface ChatMessage {
+  role: 'assistant';
+  content: string;
+}
+
 // Interface for API responses
 interface ApiResponse {
   success: boolean;
-  data?: any;
+  data?: {
+    message: ChatMessage;
+    rawResponse: Record<string, unknown>;
+  };
   error?: string;
 }
 
@@ -26,9 +34,6 @@ interface ApiResponse {
 const getConfig = (): ApiConfig => {
   return loadApiConfig();
 };
-
-// CORS proxy URL (you can use other CORS proxies if needed)
-const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
 
 /**
  * Send a message to the AI service
@@ -53,11 +58,15 @@ export const sendChatMessage = async (
   // Different API endpoints based on provider
   let apiEndpoint = '';
   let requestBody = {};
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
   
   try {
     switch (config.chatAI.provider) {
       case 'openai':
         apiEndpoint = 'https://api.openai.com/v1/chat/completions';
+        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -67,6 +76,7 @@ export const sendChatMessage = async (
         break;
       case 'anthropic':
         apiEndpoint = 'https://api.anthropic.com/v1/messages';
+        headers['x-api-key'] = config.chatAI.apiKey;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -75,6 +85,7 @@ export const sendChatMessage = async (
         break;
       case 'mistral':
         apiEndpoint = 'https://api.mistral.ai/v1/chat/completions';
+        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -84,6 +95,7 @@ export const sendChatMessage = async (
         break;
       case 'perplexity':
         apiEndpoint = 'https://api.perplexity.ai/chat/completions';
+        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -98,18 +110,10 @@ export const sendChatMessage = async (
         };
     }
 
-    // Use CORS proxy for the API call when on GitHub Pages
-    const isGitHubPages = window.location.hostname.includes('github.io');
-    const finalEndpoint = isGitHubPages ? `${CORS_PROXY}${apiEndpoint}` : apiEndpoint;
-
     // Make the API call
-    const response = await fetch(finalEndpoint, {
+    const response = await fetch(apiEndpoint, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.chatAI.apiKey}`,
-        'Content-Type': 'application/json',
-        'Origin': window.location.origin,
-      },
+      headers: headers,
       body: JSON.stringify(requestBody)
     }).catch(error => {
       console.error('Network error:', error);
