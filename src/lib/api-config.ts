@@ -1,8 +1,13 @@
 export interface ApiConfig {
   chatAI: {
-    provider: 'openai';
+    provider: 'openai' | 'anthropic' | 'mistral' | 'perplexity';
     apiKey: string;
     model: string;
+  };
+  voiceAI?: {
+    provider: 'elevenlabs' | 'google' | 'azure';
+    apiKey: string;
+    voiceId?: string;
   };
 }
 

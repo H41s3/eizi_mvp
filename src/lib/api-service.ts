@@ -27,6 +27,9 @@ const getConfig = (): ApiConfig => {
   return loadApiConfig();
 };
 
+// CORS proxy URL (you can use other CORS proxies if needed)
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+
 /**
  * Send a message to the AI service
  */
@@ -95,26 +98,43 @@ export const sendChatMessage = async (
         };
     }
 
+    // Use CORS proxy for the API call when on GitHub Pages
+    const isGitHubPages = window.location.hostname.includes('github.io');
+    const finalEndpoint = isGitHubPages ? `${CORS_PROXY}${apiEndpoint}` : apiEndpoint;
+
     // Make the API call
-    const response = await fetch(apiEndpoint, {
+    const response = await fetch(finalEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${config.chatAI.apiKey}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Origin': window.location.origin,
       },
       body: JSON.stringify(requestBody)
+    }).catch(error => {
+      console.error('Network error:', error);
+      throw new Error('Network error. Please check your internet connection.');
     });
 
-    // Parse and process the response
-    const data = await response.json();
-    
     if (!response.ok) {
-      console.error('API error:', data);
-      return {
-        success: false,
-        error: data.error?.message || 'Failed to get response from AI service.'
-      };
+      const errorData = await response.json().catch(() => null);
+      console.error('API error:', errorData);
+      
+      // More specific error messages
+      if (response.status === 401) {
+        throw new Error('Invalid API key. Please check your API key in Settings.');
+      } else if (response.status === 403) {
+        throw new Error('Access forbidden. Please check your API key permissions.');
+      } else if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+      }
+      
+      throw new Error(errorData?.error?.message || `API error: ${response.status}`);
     }
+
+    const data = await response.json().catch(() => {
+      throw new Error('Invalid response from API');
+    });
 
     // Process different response formats based on provider
     let content = '';
@@ -131,6 +151,10 @@ export const sendChatMessage = async (
         break;
       default:
         content = 'No content from AI service.';
+    }
+
+    if (!content) {
+      throw new Error('No content received from AI service');
     }
 
     return {
