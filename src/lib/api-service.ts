@@ -26,6 +26,9 @@ interface ApiResponse {
   data?: {
     message: ChatMessage;
     rawResponse: Record<string, unknown>;
+  } | {
+    audioUrl: string;
+    duration: number;
   };
   error?: string;
 }
@@ -66,7 +69,8 @@ export const sendChatMessage = async (
     switch (config.chatAI.provider) {
       case 'openai':
         apiEndpoint = 'https://api.openai.com/v1/chat/completions';
-        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
+        // Handle both project and secret API keys
+        headers['Authorization'] = `Bearer ${config.chatAI.apiKey.startsWith('sk-proj-') ? config.chatAI.apiKey.replace('sk-proj-', 'sk-') : config.chatAI.apiKey}`;
         requestBody = {
           model: config.chatAI.model,
           messages: messages,
@@ -110,6 +114,11 @@ export const sendChatMessage = async (
         };
     }
 
+    console.log('Making API call with headers:', {
+      ...headers,
+      'Authorization': headers['Authorization']?.substring(0, 20) + '...'
+    });
+
     // Make the API call
     const response = await fetch(apiEndpoint, {
       method: 'POST',
@@ -139,6 +148,8 @@ export const sendChatMessage = async (
     const data = await response.json().catch(() => {
       throw new Error('Invalid response from API');
     });
+
+    console.log('API response:', data);
 
     // Process different response formats based on provider
     let content = '';

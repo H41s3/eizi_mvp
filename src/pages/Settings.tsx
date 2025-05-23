@@ -50,21 +50,23 @@ const Settings = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <div className="mb-4">
-        <Button
-          variant="ghost"
-          className="gap-2"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Chat
-        </Button>
-      </div>
-
       <Card>
-        <CardHeader>
-          <CardTitle>API Settings</CardTitle>
-          <CardDescription>Configure your AI provider settings</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2"
+              onClick={() => navigate('/')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <div>
+              <CardTitle>API Settings</CardTitle>
+              <CardDescription>Configure your AI provider settings</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
