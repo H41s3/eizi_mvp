@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
   ],
+  base: '/eizi_mvp/',
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
