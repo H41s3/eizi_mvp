@@ -56,9 +56,9 @@ const RemindersSection: React.FC = () => {
           <div className="mt-3 mb-6">
             <p className="text-gray-500 text-sm mb-2">Suggestions:</p>
             <div className="flex flex-wrap gap-2">
-              {reminderSuggestions.slice(0, 5).map((suggestion, i) => (
+              {reminderSuggestions.slice(0, 5).map((suggestion) => (
                 <Button 
-                  key={i}
+                  key={`suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
                   variant="outline"
                   size="sm"
                   onClick={() => handleAddReminder(suggestion)}
