@@ -9,4 +9,8 @@
   status = 200
 
 [functions]
-  node_bundler = "esbuild" 
+  node_bundler = "esbuild"
+
+[dev]
+  targetPort = 5173
+  port = 8888 
