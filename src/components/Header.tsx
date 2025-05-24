@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Key } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import ThemeToggle from './ThemeToggle';
 import { Link } from 'react-router-dom';
@@ -20,17 +20,6 @@ const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
         
         <div className="flex items-center space-x-4 pr-0">
           <ThemeToggle />
-          <Link to="/settings">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              title="API Settings"
-              className="rounded-full"
-            >
-              <Key className="h-5 w-5" />
-              <span className="sr-only">API Settings</span>
-            </Button>
-          </Link>
           <Button 
             variant="ghost" 
             size="icon" 

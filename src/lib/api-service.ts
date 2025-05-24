@@ -1,9 +1,15 @@
 import { loadApiConfig, saveApiConfig, ApiConfig } from './api-config';
+import type { OpenAIResponse } from '@/types/openai';
 
 /**
  * API Service for Eizi
- * Handles all external API communications
+ * Handles all external API communications through Netlify Functions
  */
+
+// In development, use the full URL. In production, Netlify Functions are available at /.netlify/functions/
+const FUNCTION_URL = import.meta.env.DEV 
+  ? 'http://localhost:8888/.netlify/functions/openai-proxy'
+  : '/.netlify/functions/openai-proxy';
 
 // Interface for chat completion requests
 interface ChatCompletionRequest {
@@ -21,12 +27,21 @@ interface ChatMessage {
 }
 
 // Interface for API responses
-interface ApiResponse {
+interface ChatApiResponse {
   success: boolean;
   data?: {
-    message: ChatMessage;
-    rawResponse: Record<string, unknown>;
-  } | {
+    message: {
+      role: 'assistant';
+      content: string;
+    };
+    rawResponse?: OpenAIResponse;
+  };
+  error?: string;
+}
+
+interface AudioApiResponse {
+  success: boolean;
+  data?: {
     audioUrl: string;
     duration: number;
   };
@@ -39,7 +54,7 @@ const getConfig = (): ApiConfig => {
 };
 
 /**
- * Send a message to the AI service
+ * Send a message to the AI service via Netlify Function
  */
 export const sendChatMessage = async (
   messages: Array<{
@@ -47,135 +62,38 @@ export const sendChatMessage = async (
     content: string;
   }>,
   options: { temperature?: number; max_tokens?: number } = {}
-): Promise<ApiResponse> => {
-  const config = getConfig();
-  
-  // Check if API key is configured
-  if (!config.chatAI.apiKey) {
-    return {
-      success: false,
-      error: 'API key not configured. Please add your API key in Settings.'
-    };
-  }
-
-  // Different API endpoints based on provider
-  let apiEndpoint = '';
-  let requestBody = {};
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json'
-  };
-  
+): Promise<ChatApiResponse> => {
   try {
-    switch (config.chatAI.provider) {
-      case 'openai':
-        apiEndpoint = 'https://api.openai.com/v1/chat/completions';
-        // Keep the original API key format
-        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
-        requestBody = {
-          model: config.chatAI.model,
-          messages: messages,
-          temperature: options.temperature || 0.7,
-          max_tokens: options.max_tokens || 1000
-        };
-        break;
-      case 'anthropic':
-        apiEndpoint = 'https://api.anthropic.com/v1/messages';
-        headers['x-api-key'] = config.chatAI.apiKey;
-        requestBody = {
-          model: config.chatAI.model,
-          messages: messages,
-          max_tokens: options.max_tokens || 1000
-        };
-        break;
-      case 'mistral':
-        apiEndpoint = 'https://api.mistral.ai/v1/chat/completions';
-        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
-        requestBody = {
-          model: config.chatAI.model,
-          messages: messages,
-          temperature: options.temperature || 0.7,
-          max_tokens: options.max_tokens || 1000
-        };
-        break;
-      case 'perplexity':
-        apiEndpoint = 'https://api.perplexity.ai/chat/completions';
-        headers['Authorization'] = `Bearer ${config.chatAI.apiKey}`;
-        requestBody = {
-          model: config.chatAI.model,
-          messages: messages,
-          temperature: options.temperature || 0.7,
-          max_tokens: options.max_tokens || 1000
-        };
-        break;
-      default:
-        return {
-          success: false,
-          error: 'Unknown AI provider. Please check your settings.'
-        };
-    }
+    const config = getConfig();
+    const requestBody = {
+      model: config.chatAI.model || 'gpt-3.5-turbo',
+      messages: messages,
+      temperature: options.temperature || 0.7,
+      max_tokens: options.max_tokens || 1000
+    };
 
-    console.log('Making API call with:', {
-      endpoint: apiEndpoint,
-      headers: {
-        ...headers,
-        'Authorization': 'Bearer sk-****' // Hide the actual key
-      },
-      body: requestBody
-    });
-
-    // Make the API call
-    const response = await fetch(apiEndpoint, {
+    // Make the API call through our Netlify Function
+    const response = await fetch(FUNCTION_URL, {
       method: 'POST',
-      headers: headers,
-      body: JSON.stringify(requestBody)
-    }).catch(error => {
-      console.error('Network error:', error);
-      throw new Error('Network error. Please check your internet connection.');
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        endpoint: '/chat/completions',
+        method: 'POST',
+        body: requestBody
+      })
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
       console.error('API error:', errorData);
-      
-      // More specific error messages
-      if (response.status === 401) {
-        throw new Error('Invalid API key. Please check your API key in Settings.');
-      } else if (response.status === 403) {
-        throw new Error('Access forbidden. Please check your API key permissions.');
-      } else if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      
-      throw new Error(errorData?.error?.message || `API error: ${response.status}`);
+      throw new Error(errorData?.error || `API error: ${response.status}`);
     }
 
-    const data = await response.json().catch(() => {
-      throw new Error('Invalid response from API');
-    });
-
-    console.log('API response:', {
-      ...data,
-      choices: data.choices?.map(c => ({ ...c, message: { ...c.message, content: c.message.content.substring(0, 50) + '...' } }))
-    });
-
-    // Process different response formats based on provider
-    let content = '';
-    switch (config.chatAI.provider) {
-      case 'openai':
-        content = data.choices[0]?.message?.content || '';
-        break;
-      case 'anthropic':
-        content = data.content[0]?.text || '';
-        break;
-      case 'mistral':
-      case 'perplexity':
-        content = data.choices[0]?.message?.content || '';
-        break;
-      default:
-        content = 'No content from AI service.';
-    }
-
-    if (!content) {
+    const data = await response.json();
+    
+    if (!data.choices?.[0]?.message?.content) {
       throw new Error('No content received from AI service');
     }
 
@@ -184,7 +102,7 @@ export const sendChatMessage = async (
       data: {
         message: {
           role: 'assistant',
-          content: content
+          content: data.choices[0].message.content
         },
         rawResponse: data
       }
@@ -201,7 +119,7 @@ export const sendChatMessage = async (
 /**
  * Convert text to speech using configured voice AI
  */
-export const textToSpeech = async (text: string): Promise<ApiResponse> => {
+export const textToSpeech = async (text: string): Promise<AudioApiResponse> => {
   const config = getConfig();
   
   if (!config.voiceAI || !config.voiceAI.apiKey) {
